@@ -62,4 +62,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get language => 'العربية';
+
+  @override
+  String get duplicatePhone => 'Ce numéro existe déjà.';
 }

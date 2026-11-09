@@ -205,6 +205,12 @@ abstract class AppLocalizations {
   /// In fr, this message translates to:
   /// **'العربية'**
   String get language;
+
+  /// No description provided for @duplicatePhone.
+  ///
+  /// In fr, this message translates to:
+  /// **'Ce numéro existe déjà.'**
+  String get duplicatePhone;
 }
 
 class _AppLocalizationsDelegate

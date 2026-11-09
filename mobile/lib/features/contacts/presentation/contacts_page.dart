@@ -112,7 +112,13 @@ class _ContactsPageState extends State<ContactsPage> {
 
   void _showError(Object error) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      SnackBar(
+        content: Text(
+          error is DuplicatePhoneException
+              ? AppLocalizations.of(context)!.duplicatePhone
+              : error.toString().replaceFirst('Exception: ', ''),
+        ),
+      ),
     );
   }
 
@@ -142,7 +148,10 @@ class _ContactsPageState extends State<ContactsPage> {
   Widget build(BuildContext context) {
     final strings = AppLocalizations.of(context)!;
     final model = context.watch<ContactsModel>();
-    final contacts = model.chercher(_search.text);
+    final contacts = model
+        .chercher(_search.text)
+        .map(Contact.fromJson)
+        .toList();
     return Scaffold(
       appBar: AppBar(
         title: Text(strings.appTitle),
@@ -228,7 +237,7 @@ class _ContactsPageState extends State<ContactsPage> {
                         confirmDismiss: (_) => _confirmDelete(contact),
                         onDismissed: (_) async {
                           try {
-                            await model.supprimer(contact);
+                            await model.supprimer(contact.id!);
                           } catch (error) {
                             if (mounted) _showError(error);
                           }

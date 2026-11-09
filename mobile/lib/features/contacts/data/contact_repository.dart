@@ -1,73 +1,81 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
 
 import '../../auth/data_auth_service.dart';
-import '../../../models/contact.dart';
+
+typedef ContactMap = Map<String, dynamic>;
 
 abstract interface class ContactRepository {
-  Future<List<Contact>> lister();
-  Future<Contact> ajouter(Contact contact);
-  Future<Contact> modifier(Contact contact);
+  Future<List<ContactMap>> lister();
+  Future<ContactMap> ajouter(ContactMap contactJson);
+  Future<ContactMap> modifier(ContactMap contactJson);
   Future<void> supprimer(int id);
 }
 
 class RestRepository implements ContactRepository {
   static const base = '${AuthService.baseUrl}/personnes';
+
   Future<Map<String, String>> _headers() async => {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ${await AuthService.token() ?? ''}',
   };
-  dynamic _decode(http.Response r) {
-    final data = jsonDecode(utf8.decode(r.bodyBytes));
-    if (r.statusCode == 401) {
+
+  dynamic _decode(http.Response response) {
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    if (response.statusCode == 401) {
       AuthService.logout();
-      throw Exception('Session expirÃƒÂ©e, reconnectez-vous');
+      throw Exception('Session expired. Sign in again.');
     }
-    if (r.statusCode >= 400) {
-      throw Exception(data is Map ? data['detail'] : 'Erreur rÃƒÂ©seau');
+    if (response.statusCode >= 400) {
+      throw Exception(data is Map ? data['detail'] : 'Network error');
     }
     return data;
   }
 
   @override
-  Future<List<Contact>> lister() async {
-    final r = await http.get(Uri.parse(base), headers: await _headers());
-    return (_decode(r) as List)
-        .map((e) => Contact.fromJson(e as Map<String, dynamic>))
+  Future<List<ContactMap>> lister() async {
+    final response = await http.get(Uri.parse(base), headers: await _headers());
+    return (_decode(response) as List)
+        .map((item) => Map<String, dynamic>.from(item as Map))
         .toList();
   }
 
   @override
-  Future<Contact> ajouter(Contact c) async {
-    final r = await http.post(
+  Future<ContactMap> ajouter(ContactMap contactJson) async {
+    final response = await http.post(
       Uri.parse(base),
       headers: await _headers(),
-      body: jsonEncode(c.toJson()),
+      body: jsonEncode(contactJson),
     );
-    return Contact.fromJson(_decode(r) as Map<String, dynamic>);
+    return Map<String, dynamic>.from(_decode(response) as Map);
   }
 
   @override
-  Future<Contact> modifier(Contact c) async {
-    final r = await http.put(
-      Uri.parse('$base/${c.id}'),
+  Future<ContactMap> modifier(ContactMap contactJson) async {
+    final response = await http.put(
+      Uri.parse('$base/${contactJson['id']}'),
       headers: await _headers(),
-      body: jsonEncode(c.toJson()),
+      body: jsonEncode(contactJson),
     );
-    return Contact.fromJson(_decode(r) as Map<String, dynamic>);
+    return Map<String, dynamic>.from(_decode(response) as Map);
   }
 
   @override
   Future<void> supprimer(int id) async {
-    final r = await http.delete(
+    final response = await http.delete(
       Uri.parse('$base/$id'),
       headers: await _headers(),
     );
-    if (r.statusCode == 401) throw Exception('Session expirÃƒÂ©e');
-    if (r.statusCode >= 400) throw Exception('Suppression impossible');
+    if (response.statusCode == 401) {
+      AuthService.logout();
+      throw Exception('Session expired. Sign in again.');
+    }
+    if (response.statusCode >= 400) {
+      throw Exception('Delete failed');
+    }
   }
 }
 
@@ -79,41 +87,30 @@ class SqliteRepository implements ContactRepository {
       'CREATE TABLE persons(id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, prenom TEXT NOT NULL, telephone TEXT NOT NULL UNIQUE)',
     ),
   );
+
   @override
-  Future<List<Contact>> lister() async {
+  Future<List<ContactMap>> lister() async {
     final rows = await (await _db).query('persons', orderBy: 'nom, prenom');
-    return rows
-        .map(
-          (r) => Contact(
-            id: r['id'] as int?,
-            nom: r['nom'] as String,
-            prenom: r['prenom'] as String,
-            telephone: r['telephone'] as String,
-          ),
-        )
-        .toList();
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
   }
 
   @override
-  Future<Contact> ajouter(Contact c) async {
-    final id = await (await _db).insert('persons', c.toJson()..remove('id'));
-    return Contact(
-      id: id,
-      nom: c.nom,
-      prenom: c.prenom,
-      telephone: c.telephone,
-    );
+  Future<ContactMap> ajouter(ContactMap contactJson) async {
+    final values = Map<String, dynamic>.from(contactJson)..remove('id');
+    final id = await (await _db).insert('persons', values);
+    return {...values, 'id': id};
   }
 
   @override
-  Future<Contact> modifier(Contact c) async {
+  Future<ContactMap> modifier(ContactMap contactJson) async {
+    final values = Map<String, dynamic>.from(contactJson)..remove('id');
     await (await _db).update(
       'persons',
-      c.toJson()..remove('id'),
+      values,
       where: 'id=?',
-      whereArgs: [c.id],
+      whereArgs: [contactJson['id']],
     );
-    return c;
+    return contactJson;
   }
 
   @override
