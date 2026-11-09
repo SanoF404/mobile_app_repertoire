@@ -10,6 +10,7 @@ import '../features/auth/data_auth_service.dart';
 import '../features/contacts/data/contact_repository.dart';
 import '../features/contacts/presentation/contacts_page.dart';
 import '../features/contacts/state/contacts_model.dart';
+import '../features/comparison/presentation/comparison_page.dart';
 import '../l10n/app_localizations.dart';
 
 class PeopleoApp extends StatelessWidget {
@@ -33,8 +34,9 @@ class PeopleoApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        initialRoute: '/',
+        initialRoute: '/comparison',
         routes: {
+          '/comparison': (_) => const ComparisonPage(),
           '/': (_) => FutureBuilder<String?>(
             future: AuthService.token(),
             builder: (context, snapshot) {
